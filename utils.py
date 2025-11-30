@@ -69,6 +69,9 @@ def get_llm_response(chat_message):
     Returns:
         LLMからの回答
     """
+    import logging
+    logger = logging.getLogger(ct.LOGGER_NAME)
+    
     # LLMのオブジェクトを用意
     llm = ChatOpenAI(model_name=ct.MODEL, temperature=ct.TEMPERATURE)
 
@@ -107,6 +110,19 @@ def get_llm_response(chat_message):
     question_answer_chain = create_stuff_documents_chain(llm, question_answer_prompt)
     # 「RAG x 会話履歴の記憶機能」を実現するためのChainを作成
     chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+    # デバッグ: 検索前にRetrieverでドキュメントを取得してログ出力
+    try:
+        retrieved_docs = st.session_state.retriever.invoke(chat_message)
+        logger.info(f"検索クエリ: {chat_message}")
+        logger.info(f"取得ドキュメント数: {len(retrieved_docs)}")
+        for i, doc in enumerate(retrieved_docs):
+            dept = doc.metadata.get('department', 'N/A')
+            source = doc.metadata.get('source', 'N/A')
+            content_preview = doc.page_content[:200].replace('\n', ' ')
+            logger.info(f"  Doc {i+1}: dept={dept}, source={os.path.basename(source)}, content={content_preview}...")
+    except Exception as e:
+        logger.error(f"検索エラー: {str(e)}")
 
     # LLMへのリクエストとレスポンス取得
     llm_response = chain.invoke({"input": chat_message, "chat_history": st.session_state.chat_history})

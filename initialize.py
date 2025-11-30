@@ -100,19 +100,31 @@ def initialize_session_id():
 
 def initialize_retriever():
     """
-    画面読み込み時にRAGのRetriever（ベクターストアから検索するオブジェクト）を作成
+    画面読み込み時にRAGのRetriever(ベクターストアから検索するオブジェクト)を作成
     """
     # ロガーを読み込むことで、後続の処理中に発生したエラーなどがログファイルに記録される
     logger = logging.getLogger(ct.LOGGER_NAME)
 
     # すでにRetrieverが作成済みの場合、後続の処理を中断
     if "retriever" in st.session_state:
+        logger.info("Retrieverは既に作成済み")
         return
+    
+    logger.info("Retriever作成開始")
     
     # RAGの参照先となるデータソースの読み込み
     docs_all = load_data_sources()
+    logger.info(f"読み込んだドキュメント数: {len(docs_all)}")
 
-    # OSがWindowsの場合、Unicode正規化と、cp932（Windows用の文字コード）で表現できない文字を除去
+    # CSVドキュメントの情報をログ出力
+    csv_docs = [d for d in docs_all if 'department' in d.metadata]
+    logger.info(f"CSV由来のドキュメント数: {len(csv_docs)}")
+    for doc in csv_docs:
+        dept = doc.metadata.get('department', 'N/A')
+        content_len = len(doc.page_content)
+        logger.info(f"  CSV Doc: dept={dept}, 文字数={content_len}")
+
+    # OSがWindowsの場合、Unicode正規化と、cp932(Windows用の文字コード)で表現できない文字を除去
     for doc in docs_all:
         doc.page_content = adjust_string(doc.page_content)
         for key in doc.metadata:
@@ -130,12 +142,15 @@ def initialize_retriever():
 
     # チャンク分割を実施
     splitted_docs = text_splitter.split_documents(docs_all)
+    logger.info(f"チャンク分割後のドキュメント数: {len(splitted_docs)}")
 
     # ベクターストアの作成
     db = Chroma.from_documents(splitted_docs, embedding=embeddings)
+    logger.info("ChromaDBベクターストア作成完了")
 
     # ベクターストアを検索するRetrieverの作成
     st.session_state.retriever = db.as_retriever(search_kwargs={"k": ct.RETRIEVER_SEARCH_K})
+    logger.info(f"Retriever作成完了 (検索件数k={ct.RETRIEVER_SEARCH_K})")
 
 
 def initialize_session_state():
@@ -252,6 +267,9 @@ def file_load(path, docs_all):
                 content = "\n".join(content_lines)
                 doc = Document(page_content=content, metadata={"source": path, "department": dept})
                 docs_all.append(doc)
+                # ログ出力
+                logger = logging.getLogger(ct.LOGGER_NAME)
+                logger.info(f"CSVドキュメント作成: 部署={dept}, 従業員数={len(employees)}, 文字数={len(content)}")
         else:
             # その他のファイルは通常通り読み込み
             loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
