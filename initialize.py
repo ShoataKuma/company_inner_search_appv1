@@ -214,10 +214,49 @@ def file_load(path, docs_all):
 
     # 想定していたファイル形式の場合のみ読み込む
     if file_extension in ct.SUPPORTED_EXTENSIONS:
-        # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
-        loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
-        docs = loader.load()
-        docs_all.extend(docs)
+        # CSVファイルの場合は特別処理
+        if file_extension == ".csv" and "社員名簿" in file_name:
+            # 社員名簿CSVを部署ごとにグループ化して読み込む
+            import csv
+            from langchain.schema import Document
+            
+            with open(path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+            
+            # 部署ごとにグループ化
+            dept_groups = {}
+            for row in rows:
+                dept = row.get('部署', '不明')
+                if dept not in dept_groups:
+                    dept_groups[dept] = []
+                dept_groups[dept].append(row)
+            
+            # 各部署ごとに1つのドキュメントを作成
+            for dept, employees in dept_groups.items():
+                content_lines = [f"【{dept}の従業員一覧】\n"]
+                for emp in employees:
+                    emp_info = (
+                        f"社員ID: {emp.get('社員ID', '')}, "
+                        f"氏名: {emp.get('氏名（フルネーム）', '')}, "
+                        f"性別: {emp.get('性別', '')}, "
+                        f"年齢: {emp.get('年齢', '')}歳, "
+                        f"従業員区分: {emp.get('従業員区分', '')}, "
+                        f"部署: {emp.get('部署', '')}, "
+                        f"役職: {emp.get('役職', '')}, "
+                        f"スキルセット: {emp.get('スキルセット', '')}, "
+                        f"保有資格: {emp.get('保有資格', '')}"
+                    )
+                    content_lines.append(emp_info)
+                
+                content = "\n".join(content_lines)
+                doc = Document(page_content=content, metadata={"source": path, "department": dept})
+                docs_all.append(doc)
+        else:
+            # その他のファイルは通常通り読み込み
+            loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
+            docs = loader.load()
+            docs_all.extend(docs)
 
 
 def adjust_string(s):
