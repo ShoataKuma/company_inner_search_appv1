@@ -26,13 +26,11 @@ import constants as ct
 ############################################################
 # ブラウザタブの表示文言を設定
 st.set_page_config(
-    page_title=ct.APP_NAME    # チャンク分割設定
-    CHUNK_SIZE = 500  # チャンクの最大文字数
-    CHUNK_OVERLAP = 50  # チャンク間のオーバーラップ文字数
-    
-    # RAG検索設定
-    RETRIEVER_SEARCH_K = 5  # ベクターストアから取得する関連ドキュメントの数
+    page_title=ct.APP_NAME
 )
+
+# ログ出力を行うためのロガーの設定
+logger = logging.getLogger(ct.LOGGER_NAME)
 
 # ログ出力を行うためのロガーの設定
 logger = logging.getLogger(ct.LOGGER_NAME)
