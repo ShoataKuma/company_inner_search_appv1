@@ -58,8 +58,8 @@ WEB_URL_LOAD_TARGETS = [
 ]
 
 # チャンク分割設定
-CHUNK_SIZE = 500  # チャンクの最大文字数
-CHUNK_OVERLAP = 50  # チャンク間のオーバーラップ文字数
+CHUNK_SIZE = 2000  # CSVの部署ごとドキュメント(最大1829文字)を分割しないよう大きめに設定
+CHUNK_OVERLAP = 100  # チャンク間のオーバーラップ文字数
 
 # RAG検索設定
 RETRIEVER_SEARCH_K = 5  # ベクターストアから取得する関連ドキュメントの数
