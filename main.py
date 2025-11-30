@@ -26,7 +26,12 @@ import constants as ct
 ############################################################
 # ブラウザタブの表示文言を設定
 st.set_page_config(
-    page_title=ct.APP_NAME
+    page_title=ct.APP_NAME    # チャンク分割設定
+    CHUNK_SIZE = 500  # チャンクの最大文字数
+    CHUNK_OVERLAP = 50  # チャンク間のオーバーラップ文字数
+    
+    # RAG検索設定
+    RETRIEVER_SEARCH_K = 5  # ベクターストアから取得する関連ドキュメントの数
 )
 
 # ログ出力を行うためのロガーの設定
@@ -56,11 +61,11 @@ if not "initialized" in st.session_state:
 ############################################################
 # 4. 初期表示
 ############################################################
+# サイドバー表示（モード選択と使い方）
+cn.display_sidebar()
+
 # タイトル表示
 cn.display_app_title()
-
-# モード表示
-cn.display_select_mode()
 
 # AIメッセージの初期表示
 cn.display_initial_ai_message()
