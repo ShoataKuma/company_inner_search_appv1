@@ -117,12 +117,14 @@ def initialize_retriever():
     logger.info(f"読み込んだドキュメント数: {len(docs_all)}")
 
     # CSVドキュメントの情報をログ出力
-    csv_docs = [d for d in docs_all if 'department' in d.metadata]
-    logger.info(f"CSV由来のドキュメント数: {len(csv_docs)}")
+    csv_docs = [d for d in docs_all if 'employee_count' in d.metadata]
+    logger.info(f"CSV由来のドキュメント数(部署数): {len(csv_docs)}")
+    
     for doc in csv_docs:
         dept = doc.metadata.get('department', 'N/A')
+        emp_count = doc.metadata.get('employee_count', 0)
         content_len = len(doc.page_content)
-        logger.info(f"  CSV Doc: dept={dept}, 文字数={content_len}")
+        logger.info(f"  {dept}: {emp_count}名, 文字数={content_len}")
 
     # OSがWindowsの場合、Unicode正規化と、cp932(Windows用の文字コード)で表現できない文字を除去
     for doc in docs_all:
@@ -231,9 +233,11 @@ def file_load(path, docs_all):
     if file_extension in ct.SUPPORTED_EXTENSIONS:
         # CSVファイルの場合は特別処理
         if file_extension == ".csv" and "社員名簿" in file_name:
-            # 社員名簿CSVを部署ごとにグループ化して読み込む
+            # 社員名簿CSVを部署ごとに1ドキュメントに統合して読み込む
             import csv
             from langchain.schema import Document
+            
+            logger = logging.getLogger(ct.LOGGER_NAME)
             
             with open(path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -249,27 +253,43 @@ def file_load(path, docs_all):
             
             # 各部署ごとに1つのドキュメントを作成
             for dept, employees in dept_groups.items():
-                content_lines = [f"【{dept}の従業員一覧】\n"]
-                for emp in employees:
-                    emp_info = (
-                        f"社員ID: {emp.get('社員ID', '')}, "
-                        f"氏名: {emp.get('氏名（フルネーム）', '')}, "
-                        f"性別: {emp.get('性別', '')}, "
-                        f"年齢: {emp.get('年齢', '')}歳, "
-                        f"従業員区分: {emp.get('従業員区分', '')}, "
-                        f"部署: {emp.get('部署', '')}, "
-                        f"役職: {emp.get('役職', '')}, "
-                        f"スキルセット: {emp.get('スキルセット', '')}, "
-                        f"保有資格: {emp.get('保有資格', '')}"
-                    )
-                    content_lines.append(emp_info)
+                content_lines = [f"【{dept}の従業員一覧】"]
+                content_lines.append(f"部署名: {dept}")
+                content_lines.append(f"所属人数: {len(employees)}名")
+                content_lines.append("")
                 
+                for i, emp in enumerate(employees, 1):
+                    emp_info = f"""従業員{i}:
+  社員ID: {emp.get('社員ID', '')}
+  氏名: {emp.get('氏名（フルネーム）', '')}
+  性別: {emp.get('性別', '')}
+  年齢: {emp.get('年齢', '')}歳
+  従業員区分: {emp.get('従業員区分', '')}
+  入社日: {emp.get('入社日', '')}
+  部署: {dept}
+  役職: {emp.get('役職', '')}
+  メールアドレス: {emp.get('メールアドレス', '')}
+  スキルセット: {emp.get('スキルセット', '')}
+  保有資格: {emp.get('保有資格', '')}
+  大学: {emp.get('大学名', '')} {emp.get('学部・学科', '')}
+  卒業年月日: {emp.get('卒業年月日', '')}"""
+                    content_lines.append(emp_info)
+                    content_lines.append("")
+                
+                content_lines.append(f"以上、{dept}に所属する全{len(employees)}名の従業員情報です。")
                 content = "\n".join(content_lines)
-                doc = Document(page_content=content, metadata={"source": path, "department": dept})
+                
+                doc = Document(
+                    page_content=content, 
+                    metadata={
+                        "source": path, 
+                        "department": dept,
+                        "employee_count": len(employees)
+                    }
+                )
                 docs_all.append(doc)
-                # ログ出力
-                logger = logging.getLogger(ct.LOGGER_NAME)
-                logger.info(f"CSVドキュメント作成: 部署={dept}, 従業員数={len(employees)}, 文字数={len(content)}")
+            
+            logger.info(f"CSVドキュメント作成: {len(dept_groups)}部署、計{len(rows)}名を部署ごとに統合")
         else:
             # その他のファイルは通常通り読み込み
             loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
